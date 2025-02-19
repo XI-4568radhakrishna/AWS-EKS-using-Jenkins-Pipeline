@@ -1,5 +1,6 @@
 pipeline {
     agent any
+      tools {nodejs "node"}
     environment {
         AWS_ACCOUNT_ID="864899865567"
         AWS_DEFAULT_REGION="us-east-1"
@@ -7,7 +8,7 @@ pipeline {
         IMAGE_TAG="v121"
         REPOSITORY_URI = "864899865567.dkr.ecr.us-east-1.amazonaws.com/aisdlc"
     }
-   tools {nodejs "node"}
+   
     stages {
         
          stage('Logging into AWS ECR') {
