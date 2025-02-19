@@ -1,8 +1,7 @@
 pipeline {
+  tools {nodejs "nodejs"}
   agent any
-  
-   tools {nodejs "nodejs"}
-    
+       
   stages {
     stage("Clone code from GitHub") {
             steps {
