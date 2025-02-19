@@ -1,48 +1,52 @@
 pipeline {
-    agent any
-      tools {nodejs "node"}
-    environment {
-        AWS_ACCOUNT_ID="864899865567"
-        AWS_DEFAULT_REGION="us-east-1"
-        IMAGE_REPO_NAME="aisdlc"
-        IMAGE_TAG="v121"
-        REPOSITORY_URI = "864899865567.dkr.ecr.us-east-1.amazonaws.com/aisdlc"
-    }
-   
-    stages {
-        
-         stage('Logging into AWS ECR') {
+  agent any
+  
+   tools {nodejs "node"}
+    
+  stages {
+    stage("Clone code from GitHub") {
             steps {
                 script {
-                sh """aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/z9m4u8u6 """
+                    checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'GITHUB_CREDENTIALS', url: 'https://github.com/devopshint/Deploy-NodeApp-to-AWS-EKS-using-Jenkins-Pipeline']])
                 }
-                 
             }
         }
-        
-        stage('Cloning Git') {
-            steps {
-                checkout([$class: 'GitSCM', branches: [[name: '*/main']], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: 'github-creds', url: 'https://github.com/XI-4568radhakrishna/devops-automation.git']]])     
-            }
-        }
+     
+    stage('Node JS Build') {
+      steps {
+        sh 'npm install'
+      }
+    }
   
-    // Building Docker images
-    stage('Building image') {
-      steps{
+     stage('Build Node JS Docker Image') {
+            steps {
+                script {
+                  sh 'docker build -t devopshint/node-app-1.0 .'
+                }
+            }
+        }
+
+
+        stage('Deploy Docker Image to DockerHub') {
+            steps {
+                script {
+                 withCredentials([string(credentialsId: 'devopshintdocker', variable: 'devopshintdocker')]) {
+                    sh 'docker login -u devopshint -p ${devopshintdocker}'
+            }
+            sh 'docker push devopshint/node-app-1.0'
+        }
+            }   
+        }
+         
+     stage('Deploying Node App to Kubernetes') {
+      steps {
         script {
-          dockerImage = docker.build "${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+          sh ('aws eks update-kubeconfig --name sample --region ap-south-1')
+          sh "kubectl get ns"
+          sh "kubectl apply -f nodejsapp.yaml"
         }
       }
     }
-   
-    // Uploading Docker images into AWS ECR
-    stage('Pushing to ECR') {
-     steps{  
-         script {
-                sh """docker tag ${IMAGE_REPO_NAME}:${IMAGE_TAG} ${REPOSITORY_URI}:$IMAGE_TAG"""
-                sh """docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${IMAGE_REPO_NAME}:${IMAGE_TAG}"""
-         }
-        }
-      }
-    }
+
+  }
 }
